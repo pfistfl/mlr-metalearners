@@ -7,6 +7,14 @@ Extending mlr using several meta-learning techniques such as stacking, multioutp
 The general idea is to extend mlr to allow for easy incorporation of chaining, stacking and blending 
 via a mlrCPO-esque syntax.
 
+
+## Possible Operators
+
+```
+maskFeatures()
+unmaskFeatures()
+```
+
 ## Simple usecase MultiOutput
 
 A simple usecase would be first predicting the `age` variable in 
