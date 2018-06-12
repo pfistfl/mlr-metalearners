@@ -13,6 +13,9 @@ via a mlrCPO-esque syntax.
 ```
 maskFeatures()
 unmaskFeatures()
+addFeature()
+dropFeature()
+trainPredict()
 ```
 
 ## Simple usecase MultiOutput
