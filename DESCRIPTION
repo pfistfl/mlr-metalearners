@@ -1,0 +1,21 @@
+Package: mlrmetalearners
+Type: Package
+Title: Metalearners for mlr
+Description: Implements several meta-learning techniques such as stacking and multioutput wrappers.
+Version: 0.1.0
+Authors@R: c(
+    person("Quay", "Au", email = "quay.au@stat.uni-muenchen.de", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-5252-8902")),
+    person("Florian", "Pfisterer", email = "pfistererf@googlemail.com", role = c("aut", "cre")))
+URL: https://github.com/pfistfl/mlr-extralearners
+License: BSD_2_clause
+Encoding: UTF-8
+Depends:
+    R (>= 3.0.2),
+    ParamHelpers (>= 1.10),
+    mlr,
+    mlrCPO
+Imports: 
+    gplot2
+Suggests: 
+    testthat
+LazyData: true
