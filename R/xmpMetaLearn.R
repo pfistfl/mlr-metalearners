@@ -50,7 +50,6 @@ xmpMetaLearn = makeCPOTargetOp("xmp.meta",
 
 # We can chain the xmpMetaLearns and then normally pipe into resample
 xmpMetaLearn(makeLearner("classif.svm"), id = "1") %>>%
-  xmpMetaLearn(makeLearner("classif.logreg"), id = "2") %>>%
   makeLearner("classif.rpart") %>%
   resample(pid.task, cv2)
 
