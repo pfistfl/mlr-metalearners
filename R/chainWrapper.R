@@ -9,21 +9,21 @@
 #' down to the next learner.
 #'
 #' @template arg_learner
-#' @param sw.rate (`numeric(1)`)\cr
-#'   Factor to oversample the smaller class. Must be between 1 and `Inf`,
-#'   where 1 means no oversampling and 2 would mean doubling the class size.
-#'   Default is 1.
 #' @template ret_learner
 #' @family wrapper
 #' @export
-makeChainLearnerWrapper = function(first.learner, second.learner, id = NULL, ...) {
+makeChainLearnerWrapper = function(first.learner, second.learner, second.lrn.id = NULL, oob.strat = cv3, ...) {
   
   # Create a ModelMultiplexer
   mm = makeModelMultiplexer(list(first.learner, second.learner))
-  assertString(id, null.ok = TRUE)
+  assertString(second.lrn.id, null.ok = TRUE)
+  assert(checkClass(oob.strat, "ResampleDesc", null.ok = TRUE), checkClass(oob.strat, "ResampleInstance"))
+  
   # Add the ModelMultiplexer to a BaseWrapper
-  id = stringi::stri_paste(mm$base.learners[[1]]$id, "_", ifelse(is.null(id), mm$base.learners[[2]]$id, id), sep = "")
+  id = stringi::stri_paste(mm$base.learners[[1]]$id, "_", ifelse(is.null(second.lrn.id), 
+    mm$base.learners[[2]]$id, second.lrn.id), sep = "")
   lrn = makeBaseWrapper(id, "classif", mm,
+    par.set = makeParamSet(makeUntypedLearnerParam(id = "oob.strat", default = mlr::cv3)),
     package = c(mm$base.learners[[1]]$package, mm$base.learners[[2]]$package),
     learner.subclass = "chainWrapper",
     model.subclass = "chainModel")
@@ -32,26 +32,31 @@ makeChainLearnerWrapper = function(first.learner, second.learner, id = NULL, ...
 }
 
 #' @export
-trainLearner.chainWrapper = function(.learner, .task, .subset = NULL, .weights = NULL, ...) {
+trainLearner.chainWrapper = function(.learner, .task, .subset = NULL, .weights = NULL, oob.strat = cv3, ...) {
   
   .task = subsetTask(.task, .subset)
-  # Train on first learner
+  
+  # Train using first learner
   first.model = train(.learner$next.learner, .task, weights = .weights)
   
-  # FIXME: Incorporate different methods, here we do blending
-  model.preds = predict(first.model, .task)$data$response
+  # FIXME: Incorporate different methods, here we do stupid blending
+  if (is.null(oob.strat)) {
+    model.preds = predict(first.model, .task)$data$response
+  } else {
+    model.preds = makeOobPred(.task, .learner$next.learner, rdesc = oob.strat)
+  }
   
   # Create a new task with the additional predictions
   nextdata = getTaskData(.task, target.extra = FALSE)
-  # Avoid name clashes
-  new.feat.name = setdiff(paste(.learner$next.learner$base.learners[[1]]$id, "prd", seq_len(sum(.task$task.desc$n.feat) + 2),  sep = "."),
-                          colnames(nextdata))[1]
+  # Avoid name clashes in feature names
+  new.feat.name = setdiff(paste(.learner$next.learner$base.learners[[1]]$id,
+    "prd", seq_len(sum(.task$task.desc$n.feat) + 2),  sep = "."), colnames(nextdata))[1]
   nextdata[[new.feat.name]] =  model.preds
   .task = makeClassifTask(id = getTaskId(.task), target = getTaskTargetNames(.task),
-                          data = nextdata)
+    data = nextdata)
   
   m = train(setHyperPars(.learner$next.learner, selected.learner = .learner$next.learner$base.learners[[2]]$id),
-            .task, weights = .weights) 
+    .task, weights = .weights) 
   cm = makeChainModel(next.model = m, cl = "ChainModel")
   cm$first.model = first.model
   return(cm)
@@ -84,4 +89,4 @@ if (FALSE) {
   m1 = makeModelMultiplexer(c("classif.rpart", "classif.ranger"))
   m2 = makeModelMultiplexer(list(m1, makeLearner("classif.svm")))
   m3 = makeModelMultiplexer(list(m2, makeLearner("classif.ksvm")))
-  }
+}
