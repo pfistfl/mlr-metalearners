@@ -8,7 +8,17 @@
 #' Note that observation weights do not influence the sampling and are simply passed
 #' down to the next learner.
 #'
-#' @template arg_learner
+#' @param first.learner [`Learner`]|[`character`]\cr
+#'   A mlr learner or a character string specifying a learner.
+#' @param second.learner [`Learner`]|[`character`]\cr
+#'   A mlr learner or a character string specifying a learner.
+#' @param oob.strat [`ResampleDesc`]|[`ResampleInstance`]\cr
+#'   A resample description or a ResampleInstance that defines how the new variables are computed.
+#'   As only the OOB predictions from resampling are kept, this can reduce overfitting.
+#'   Can be NULL, then a simple prediction is made (which is prone to overfitting).
+#' @param second.lrn.id [`numeric`]\cr
+#'   Optional: Id for the second learner.
+#'   
 #' @template ret_learner
 #' @family wrapper
 #' @export
@@ -23,7 +33,7 @@ makeChainLearnerWrapper = function(first.learner, second.learner, second.lrn.id 
   id = stringi::stri_paste(mm$base.learners[[1]]$id, "_", ifelse(is.null(second.lrn.id), 
     mm$base.learners[[2]]$id, second.lrn.id), sep = "")
   lrn = makeBaseWrapper(id, "classif", mm,
-    par.set = makeParamSet(makeUntypedLearnerParam(id = "oob.strat", default = mlr::cv3)),
+    par.set = makeParamSet(makeUntypedLearnerParam(id = "oob.strat", default = mlr::cv3, tunable = FALSE)),
     package = c(mm$base.learners[[1]]$package, mm$base.learners[[2]]$package),
     learner.subclass = "chainWrapper",
     model.subclass = "chainModel")
@@ -75,10 +85,10 @@ predictLearner.chainWrapper = function(.learner, .model, .newdata, ...) {
 
 if (FALSE) {
   cw = makeChainLearnerWrapper("classif.rpart", "classif.svm")
-  cm = train(cw, pid.task)
+  cm = train("classif.rpart", pid.task)
   cp = predict(cm, pid.task)
   
-  resample(cw, pid.task, cv3)
+  resample("classif.rpart", pid.task, cv3)
   
   lrn = "classif.rpart" %>%
     makeChainLearnerWrapper("classif.svm") %>%
@@ -86,7 +96,26 @@ if (FALSE) {
     makeChainLearnerWrapper("classif.svm")
   resample(lrn, pid.task, cv3)
   
-  m1 = makeModelMultiplexer(c("classif.rpart", "classif.ranger"))
-  m2 = makeModelMultiplexer(list(m1, makeLearner("classif.svm")))
-  m3 = makeModelMultiplexer(list(m2, makeLearner("classif.ksvm")))
+  # Get a tuneable param set for an arbitrary learner
+  ps = getLearnerParamSet(cw) %>%
+    filterParams(tunable = TRUE, type = c("numeric", "integer", "logical", "discrete", "character"),
+      check.requires = FALSE)
+  ps$pars = lapply(ps$pars, function(x) {
+    if (x$type %in% c("integer", "numeric")) {
+      if(is.infinite(x$upper))
+        x$upper = 1000
+      if(is.infinite(x$lower))
+        x$lower = -1000
+    }
+    x$requires = NULL
+    return(x)
+  })
+  ps$pars$classif.svm.type = NULL
+  
+  cw %>% 
+    makeTuneWrapper(cv2, acc, par.set = ps,
+    control = makeTuneControlRandom(maxit = 3)) %>%
+    resample(pid.task, cv2)
+  
+  
 }
