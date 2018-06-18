@@ -1,6 +1,6 @@
 # mlr-metalearners
 
-** No working code exists yet, this is a WiP!** 
+**No working code exists yet, this is a WiP!** 
 
 Extending mlr using several meta-learning techniques such as stacking, multioutput and multilabel ensembles
 
